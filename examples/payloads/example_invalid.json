@@ -1,0 +1,9 @@
+{
+  "transactionReference": "TXN-2024-001",
+  "customerEmail": "not-an-email",
+  "amount": -5,
+  "status": "UNKNOWN",
+  "requestedAt": "15/01/2024",
+  "items": [],
+  "unexpectedField": "surprise"
+}

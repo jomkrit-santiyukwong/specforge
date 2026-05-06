@@ -1,0 +1,41 @@
+type: object
+fields:
+  transactionReference:
+    type: string
+    required: true
+    maxLength: 50
+  customerEmail:
+    type: string
+    required: true
+    format: email
+  amount:
+    type: number
+    required: true
+    minimum: 0.01
+  status:
+    type: string
+    required: true
+    enum: [PENDING, ACTIVE, CLOSED]
+  requestedAt:
+    type: string
+    required: true
+    format: date-time
+  items:
+    type: array
+    required: true
+    minItems: 1
+    items:
+      type: object
+      fields:
+        productName:
+          type: string
+          required: true
+          minLength: 1
+        quantity:
+          type: integer
+          required: true
+          minimum: 1
+        unitPrice:
+          type: number
+          required: true
+          minimum: 0

@@ -1,0 +1,19 @@
+{
+  "transactionReference": "TXN-2024-001",
+  "customerEmail": "user@example.com",
+  "amount": 250.00,
+  "status": "PENDING",
+  "requestedAt": "2024-01-15T10:30:00",
+  "items": [
+    {
+      "productName": "Widget A",
+      "quantity": 2,
+      "unitPrice": 100.00
+    },
+    {
+      "productName": "Widget B",
+      "quantity": 1,
+      "unitPrice": 50.00
+    }
+  ]
+}
