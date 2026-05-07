@@ -30,3 +30,8 @@ def write(result: ValidationResult, output_path: Path) -> None:
         json.dumps(payload, indent=2, ensure_ascii=False, allow_nan=False),
         encoding="utf-8",
     )
+
+
+def diff_result_to_json(result) -> str:
+    payload = _sanitize(result.model_dump())
+    return json.dumps(payload, indent=2, ensure_ascii=False, allow_nan=False)

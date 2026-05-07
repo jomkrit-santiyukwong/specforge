@@ -13,6 +13,7 @@ class FieldSpec(BaseModel):
     required: bool = False
     nullable: bool = True
     description: str | None = None
+    default: Any | None = None
 
     # String
     minLength: int | None = Field(default=None, ge=0)

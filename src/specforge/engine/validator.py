@@ -20,28 +20,34 @@ def _safe_match(pattern: str, value: str) -> bool | None:
     """Run regex in a child process with a 1-second timeout.
     Raises re.error for invalid patterns. Returns None on timeout."""
     import queue as _queue_mod
-    ctx = multiprocessing.get_context("spawn")
-    q: multiprocessing.Queue = ctx.Queue()
-    proc = ctx.Process(target=_regex_worker, args=(pattern, value, q))
-    proc.start()
-    proc.join(timeout=1.0)
-
-    if proc.is_alive():
-        proc.terminate()
-        proc.join()
-        proc.close()
-        return None
-
-    proc.close()
-
     try:
-        status, payload = q.get(timeout=0.5)
-    except _queue_mod.Empty:
-        return None
+        ctx = multiprocessing.get_context("spawn")
+        q: multiprocessing.Queue = ctx.Queue()
+        proc = ctx.Process(target=_regex_worker, args=(pattern, value, q))
+        proc.start()
+        proc.join(timeout=1.0)
 
-    if status == "re_error":
-        raise re.error(payload)
-    return bool(payload)
+        if proc.is_alive():
+            proc.terminate()
+            proc.join()
+            proc.close()
+            return None
+
+        proc.close()
+
+        try:
+            status, payload = q.get(timeout=0.5)
+        except _queue_mod.Empty:
+            return None
+
+        if status == "re_error":
+            raise re.error(payload)
+        return bool(payload)
+    except (PermissionError, OSError):
+        compiled = re.compile(pattern)
+        if re.search(r"\((?:[^()\\]|\\.)*[+*](?:[^()\\]|\\.)*\)[+*]", pattern):
+            return None
+        return bool(compiled.match(value))
 
 from specforge.models.result import Finding, ValidationResult
 from specforge.models.spec import FieldSpec, SpecFile

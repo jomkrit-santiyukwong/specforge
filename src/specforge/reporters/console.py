@@ -1,5 +1,6 @@
 from rich.console import Console
 from rich.markup import escape
+from specforge.models.result import DiffResult
 from specforge.models.result import ValidationResult
 
 _console = Console()
@@ -38,3 +39,41 @@ def _style(severity: str) -> tuple[str, str]:
     return {"error": ("[X]", "red"), "warning": ("[!]", "yellow"), "info": ("[i]", "blue")}.get(
         severity, ("[-]", "white")
     )
+
+
+def print_diff_result(result: DiffResult) -> None:
+    groups = [
+        ("breaking", "red", "Breaking Changes", "✗"),
+        ("non-breaking", "yellow", "Non-Breaking Changes", "~"),
+        ("informational", "blue", "Informational Changes", "·"),
+    ]
+
+    findings_by_classification = {
+        classification: [
+            finding
+            for finding in result.findings
+            if getattr(finding, "classification", None) == classification
+        ]
+        for classification, _, _, _ in groups
+    }
+
+    if not any(findings_by_classification.values()):
+        _console.print("[green]No changes detected.[/green]")
+        return
+
+    for classification, color, title, icon in groups:
+        findings = findings_by_classification[classification]
+        if not findings:
+            continue
+
+        _console.print(f"[bold {color}]{title}[/bold {color}]")
+        for finding in findings:
+            message = escape(finding.message)
+            if finding.related_path is not None:
+                message += f" (was: {escape(finding.related_path)})"
+            _console.print(f"  {icon} [dim]{escape(finding.path)}[/dim] {message}")
+            if finding.expected is not None:
+                _console.print(f"      old: [green]{escape(str(finding.expected))}[/green]")
+            if finding.actual is not None:
+                _console.print(f"      new: [red]{escape(str(finding.actual))}[/red]")
+        _console.print()

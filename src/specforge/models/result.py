@@ -18,3 +18,23 @@ class ValidationResult(BaseModel):
     error_count: int
     warning_count: int
     findings: list[Finding]
+
+
+class DiffFinding(BaseModel):
+    path: str
+    severity: Severity
+    code: str
+    classification: Literal["breaking", "non-breaking", "informational"]
+    message: str
+    expected: Any = None
+    actual: Any = None
+    related_path: str | None = None
+
+
+class DiffResult(BaseModel):
+    passed: bool
+    error_count: int
+    warning_count: int
+    has_breaking: bool
+    counts: dict[str, int]
+    findings: list[DiffFinding]

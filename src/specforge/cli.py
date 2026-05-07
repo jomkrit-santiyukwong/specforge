@@ -102,12 +102,57 @@ def mock(
 
 @app.command()
 def diff(
-    old: Path = typer.Option(..., "--old", help="Old spec file (YAML)", exists=True, dir_okay=False),
-    new: Path = typer.Option(..., "--new", help="New spec file (YAML)", exists=True, dir_okay=False),
+    old: Path = typer.Option(..., "--old", help="Old spec file"),
+    new: Path = typer.Option(..., "--new", help="New spec file"),
+    format: str = typer.Option("console", "--format", help="Output format: console, json, markdown"),
+    fail_on_breaking: bool = typer.Option(False, "--fail-on-breaking", help="Exit 1 if breaking changes detected"),
 ) -> None:
-    """Compare two spec versions and explain changes. (coming in Phase 3)"""
-    typer.echo("diff: coming in Phase 3")
-    raise typer.Exit(code=0)
+    """Compare two spec versions and explain changes."""
+    from ruamel.yaml import YAMLError
+
+    from specforge.engine.differ import diff_specs
+    from specforge.parsers.yaml_parser import load_spec
+    from specforge.reporters.console import print_diff_result
+    from specforge.reporters.json_reporter import diff_result_to_json
+    from specforge.reporters.markdown_reporter import diff_result_to_markdown
+
+    if not old.exists():
+        _abort(f"Old spec file does not exist: {old}")
+    if not new.exists():
+        _abort(f"New spec file does not exist: {new}")
+
+    try:
+        old_spec = load_spec(old)
+    except YAMLError as e:
+        _abort(f"Could not parse spec file: {e}")
+    except ValidationError as e:
+        _abort(f"Invalid spec structure:\n{e}")
+    except OSError as e:
+        _abort(f"Could not read spec file: {e}")
+
+    try:
+        new_spec = load_spec(new)
+    except YAMLError as e:
+        _abort(f"Could not parse spec file: {e}")
+    except ValidationError as e:
+        _abort(f"Invalid spec structure:\n{e}")
+    except OSError as e:
+        _abort(f"Could not read spec file: {e}")
+
+    result = diff_specs(old_spec, new_spec)
+    format = format.lower()
+
+    if format == "console":
+        print_diff_result(result)
+    elif format == "json":
+        print(diff_result_to_json(result))
+    elif format == "markdown":
+        print(diff_result_to_markdown(result))
+    else:
+        _abort(f"Invalid format: {format}")
+
+    if fail_on_breaking and result.has_breaking:
+        raise typer.Exit(code=1)
 
 
 if __name__ == "__main__":
