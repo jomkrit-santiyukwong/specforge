@@ -1,6 +1,8 @@
 from pathlib import Path
+import json
 from typing import Optional
 
+import click
 import typer
 from pydantic import ValidationError
 
@@ -65,12 +67,37 @@ def validate(
 
 @app.command()
 def mock(
-    spec: Path = typer.Option(..., "--spec", help="Spec file (YAML)", exists=True, dir_okay=False),
-    mode: str = typer.Option("minimal", "--mode", help="minimal | full | edge | example"),
+    spec: Path = typer.Option(..., "--spec", help="Spec file (YAML)", exists=True, dir_okay=False, readable=True),
+    mode: str = typer.Option(
+        "minimal",
+        "--mode",
+        click_type=click.Choice(["minimal", "full", "edge", "example"], case_sensitive=False),
+    ),
+    count: int = typer.Option(1, "--count", min=1, max=10_000, help="Number of mock payloads to generate (max 10,000)"),
+    seed: int | None = typer.Option(None, "--seed", help="Seed for deterministic generation"),
 ) -> None:
-    """Generate mock payloads from a spec. (coming in Phase 2)"""
-    typer.echo("mock: coming in Phase 2")
-    raise typer.Exit(code=0)
+    """Generate mock payloads from a spec."""
+    from ruamel.yaml import YAMLError
+
+    from specforge.engine.mocker import MockGenerator
+    from specforge.parsers.yaml_parser import load_spec
+
+    try:
+        spec_model = load_spec(spec)
+    except YAMLError as e:
+        _abort(f"Could not parse spec file: {e}")
+    except ValidationError as e:
+        _abort(f"Invalid spec structure:\n{e}")
+    except OSError as e:
+        _abort(f"Could not read spec file: {e}")
+
+    mode = mode.lower()
+    generator = MockGenerator(seed=seed)
+    try:
+        payload = generator.generate(spec_model, mode) if count == 1 else generator.generate_many(spec_model, mode, count)
+        typer.echo(json.dumps(payload, indent=2))
+    except (TypeError, ValueError) as e:
+        _abort(f"Could not serialize mock output: {e}")
 
 
 @app.command()

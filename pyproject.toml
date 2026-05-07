@@ -12,6 +12,7 @@ dependencies = [
     "pydantic>=2.0",
     "rich>=13.0",
     "ruamel.yaml>=0.18.0",
+    "faker>=26.0",
 ]
 
 [project.scripts]
