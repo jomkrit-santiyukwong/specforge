@@ -1,0 +1,60 @@
+type: object
+fields:
+  id:
+    type: integer
+    required: true
+    nullable: false
+  name:
+    type: string
+    required: true
+    nullable: false
+    description: Full name
+    maxLength: 100
+  status:
+    type: string
+    required: true
+    nullable: false
+    enum:
+    - A
+    - B
+    - C
+  address:
+    type: object
+    required: false
+    nullable: true
+    fields:
+      street:
+        type: string
+        required: true
+        nullable: false
+      city:
+        type: string
+        required: false
+        nullable: true
+  tags:
+    type: array
+    required: false
+    nullable: true
+    minItems: 1
+    maxItems: 5
+    items:
+      type: string
+      required: false
+      nullable: true
+  items:
+    type: array
+    required: true
+    nullable: false
+    items:
+      type: object
+      required: false
+      nullable: true
+      fields:
+        code:
+          type: string
+          required: true
+          nullable: false
+        qty:
+          type: integer
+          required: false
+          nullable: true

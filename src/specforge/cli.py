@@ -185,5 +185,33 @@ def import_csv_command(
         _abort(f"Could not write spec file: {e}")
 
 
+@app.command("import-excel")
+def import_excel_command(
+    input: Path = typer.Option(..., "--input", help="Excel schema file (.xlsx)", exists=True, dir_okay=False, readable=True),
+    output: Optional[Path] = typer.Option(None, "--output", help="Write YAML spec to file"),
+) -> None:
+    """Import an Excel schema and convert it into a SpecForge YAML spec."""
+    from specforge.adapters.csv_schema import CSVImportError
+    from specforge.adapters.excel_importer import import_excel
+    from specforge.parsers.yaml_parser import dump_spec, write_spec
+
+    try:
+        spec_model = import_excel(input)
+    except CSVImportError as e:
+        _abort(str(e))
+    except OSError as e:
+        _abort(f"Could not read Excel file: {e}")
+
+    try:
+        rendered = dump_spec(spec_model)
+        if output:
+            write_spec(spec_model, output)
+            typer.echo(f"Spec written to {output}")
+        else:
+            typer.echo(rendered, nl=False)
+    except OSError as e:
+        _abort(f"Could not write spec file: {e}")
+
+
 if __name__ == "__main__":
     app()

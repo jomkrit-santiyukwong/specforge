@@ -24,3 +24,6 @@ scratch_probe.txt
 csv-importer-*.csv
 import-csv-cli-*.csv
 import-csv-cli-*.yaml
+excel-importer-*.xlsx
+import-excel-cli-*.xlsx
+import-excel-cli-*.yaml
