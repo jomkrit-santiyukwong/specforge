@@ -8,6 +8,9 @@ dist/
 .coverage
 htmlcov/
 
+# Claude Code local settings
+.claude/settings.local.json
+
 # temp / test artifacts
 .tmp/
 .pytest_tmp/
