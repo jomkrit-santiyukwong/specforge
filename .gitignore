@@ -7,3 +7,11 @@ dist/
 *.egg-info/
 .coverage
 htmlcov/
+
+# temp / test artifacts
+.tmp/
+.pytest_tmp/
+manualtmp/
+pytest-manual/
+*.tmp.yaml
+*.tmp.json
