@@ -1,0 +1,57 @@
+type: object
+fields:
+  id:
+    type: integer
+    required: true
+    nullable: false
+    description: Primary identifier
+    minimum: 1.0
+    maximum: 999.0
+  email:
+    type: string
+    required: true
+    nullable: false
+    description: Customer email
+    minLength: 3
+    maxLength: 254
+    format: email
+  status:
+    type: string
+    required: true
+    nullable: false
+    description: Status
+    enum:
+    - OPEN
+    - CLOSED
+  address:
+    type: object
+    required: false
+    nullable: true
+    description: Mailing address
+    fields:
+      street:
+        type: string
+        required: true
+        nullable: false
+        description: Street line
+        minLength: 1
+        maxLength: 100
+      city:
+        type: string
+        required: true
+        nullable: false
+        description: City
+        minLength: 1
+        maxLength: 50
+  tags:
+    type: array
+    required: false
+    nullable: true
+    description: Tags
+    minItems: 1
+    maxItems: 5
+    uniqueItems: true
+    items:
+      type: string
+      required: false
+      nullable: true

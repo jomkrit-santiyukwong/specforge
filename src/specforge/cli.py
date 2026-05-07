@@ -67,7 +67,7 @@ def validate(
 
 @app.command()
 def mock(
-    spec: Path = typer.Option(..., "--spec", help="Spec file (YAML)", exists=True, dir_okay=False, readable=True),
+    spec: Path = typer.Option(..., "--spec", help="Spec file (YAML)", dir_okay=False, readable=True),
     mode: str = typer.Option(
         "minimal",
         "--mode",
@@ -81,6 +81,9 @@ def mock(
 
     from specforge.engine.mocker import MockGenerator
     from specforge.parsers.yaml_parser import load_spec
+
+    if not spec.exists():
+        _abort(f"Spec file does not exist: {spec}")
 
     try:
         spec_model = load_spec(spec)
@@ -153,6 +156,33 @@ def diff(
 
     if fail_on_breaking and result.has_breaking:
         raise typer.Exit(code=1)
+
+
+@app.command("import-csv")
+def import_csv_command(
+    input: Path = typer.Option(..., "--input", help="CSV schema file", exists=True, dir_okay=False, readable=True),
+    output: Optional[Path] = typer.Option(None, "--output", help="Write YAML spec to file"),
+) -> None:
+    """Import a CSV schema and convert it into a SpecForge YAML spec."""
+    from specforge.adapters import CSVImportError, import_csv
+    from specforge.parsers.yaml_parser import dump_spec, write_spec
+
+    try:
+        spec_model = import_csv(input)
+    except CSVImportError as e:
+        _abort(str(e))
+    except OSError as e:
+        _abort(f"Could not read CSV file: {e}")
+
+    try:
+        rendered = dump_spec(spec_model)
+        if output:
+            write_spec(spec_model, output)
+            typer.echo(f"Spec written to {output}")
+        else:
+            typer.echo(rendered, nl=False)
+    except OSError as e:
+        _abort(f"Could not write spec file: {e}")
 
 
 if __name__ == "__main__":

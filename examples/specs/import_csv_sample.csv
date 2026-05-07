@@ -1,0 +1,8 @@
+field_name,type,required,nullable,description,item_type,format,enum,default,min_length,max_length,pattern,minimum,maximum,min_items,max_items,unique_items
+id,integer,true,false,Primary identifier,,,,,,,,1,999,,,
+email,string,true,false,Customer email,,email,,,3,254,,,,,,
+status,string,true,false,Status,,,OPEN|CLOSED,,,,,,,,,
+address,object,false,true,Mailing address,,,,,,,,,,,,
+address.street,string,true,false,Street line,,,,,1,100,,,,,,
+address.city,string,true,false,City,,,,,1,50,,,,,,
+tags,array,false,true,Tags,string,,,,,,,,,1,5,true
