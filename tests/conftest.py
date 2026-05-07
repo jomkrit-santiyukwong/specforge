@@ -28,6 +28,7 @@ _TEST_GLOB_PATTERNS = (
     "excel-importer-*.xlsx",
     "import-excel-cli-*.xlsx",
     "import-excel-cli-*.yaml",
+    "specforge-pytest-*/",
 )
 
 
@@ -60,6 +61,9 @@ def _cleanup(root: Path) -> None:
     for pattern in _TEST_GLOB_PATTERNS:
         for path in root.glob(pattern):
             try:
-                path.unlink()
+                if path.is_dir():
+                    shutil.rmtree(path, ignore_errors=True)
+                else:
+                    path.unlink()
             except OSError:
                 pass

@@ -11,6 +11,9 @@ htmlcov/
 # Claude Code local settings
 .claude/settings.local.json
 
+# pytest tmp_path_factory directories
+specforge-pytest-*/
+
 # temp / test artifacts
 .tmp/
 .pytest_tmp/
