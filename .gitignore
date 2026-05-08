@@ -17,8 +17,14 @@ specforge-pytest-*/
 # temp / test artifacts
 .tmp/
 .pytest_tmp/
+.pytest_tmp_run/
+.pytest_tmp_step4/
+.tmp_pytest/
 manualtmp/
 pytest-manual/
+scratch_pytest_base/
+tmp1ilod46h/
+tmppt/
 *.tmp.yaml
 *.tmp.json
 scratch_probe.txt
