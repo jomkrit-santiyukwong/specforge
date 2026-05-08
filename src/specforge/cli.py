@@ -14,6 +14,45 @@ def _abort(msg: str) -> None:
     raise typer.Exit(code=2)
 
 
+def _version_callback(value: bool) -> None:
+    if value:
+        from importlib.metadata import PackageNotFoundError, version
+
+        try:
+            ver = version("specforge")
+        except PackageNotFoundError:
+            ver = "unknown"
+        typer.echo(f"specforge {ver}")
+        raise typer.Exit()
+
+
+@app.callback()
+def _main(
+    version: Optional[bool] = typer.Option(
+        None,
+        "--version",
+        callback=_version_callback,
+        is_eager=True,
+        help="Show version and exit",
+    ),
+    quiet: bool = typer.Option(
+        False,
+        "--quiet",
+        "-q",
+        help="Suppress warning logs (errors still shown)",
+    ),
+) -> None:
+    import logging
+
+    level = logging.ERROR if quiet else logging.WARNING
+    root = logging.getLogger()
+    if not root.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+        root.addHandler(handler)
+    root.setLevel(level)
+
+
 @app.command()
 def validate(
     spec: Path = typer.Option(..., "--spec", help="Spec file (YAML)", exists=True, dir_okay=False, readable=True),
@@ -97,8 +136,16 @@ def mock(
     mode = mode.lower()
     generator = MockGenerator(seed=seed)
     try:
-        payload = generator.generate(spec_model, mode) if count == 1 else generator.generate_many(spec_model, mode, count)
-        typer.echo(json.dumps(payload, indent=2))
+        if count == 1:
+            typer.echo(json.dumps(generator.generate(spec_model, mode), indent=2))
+        else:
+            typer.echo("[")
+            for i, obj in enumerate(generator.iter_generate(spec_model, mode, count)):
+                rendered = json.dumps(obj, indent=2)
+                indented = "\n".join("  " + line for line in rendered.splitlines())
+                suffix = "," if i < count - 1 else ""
+                typer.echo(indented + suffix)
+            typer.echo("]")
     except (TypeError, ValueError) as e:
         _abort(f"Could not serialize mock output: {e}")
 
@@ -189,6 +236,7 @@ def import_csv_command(
 def import_excel_command(
     input: Path = typer.Option(..., "--input", help="Excel schema file (.xlsx)", exists=True, dir_okay=False, readable=True),
     output: Optional[Path] = typer.Option(None, "--output", help="Write YAML spec to file"),
+    sheet: Optional[str] = typer.Option(None, "--sheet", help="Sheet name (default: active sheet)"),
 ) -> None:
     """Import an Excel schema and convert it into a SpecForge YAML spec."""
     from specforge.adapters.csv_schema import CSVImportError
@@ -196,7 +244,7 @@ def import_excel_command(
     from specforge.parsers.yaml_parser import dump_spec, write_spec
 
     try:
-        spec_model = import_excel(input)
+        spec_model = import_excel(input, sheet=sheet)
     except CSVImportError as e:
         _abort(str(e))
     except OSError as e:
