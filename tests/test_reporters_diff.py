@@ -137,3 +137,33 @@ def test_markdown_diff_no_change_still_has_summary_table():
     assert "| Breaking | 0 |" in output
     assert "No changes detected." in output
     assert "## Breaking Changes" not in output
+
+
+def test_markdown_escapes_pipe_and_newlines_in_field_values():
+    result = DiffResult(
+        passed=False,
+        error_count=1,
+        warning_count=0,
+        has_breaking=True,
+        counts={"breaking": 1, "non-breaking": 0, "informational": 0},
+        findings=[
+            DiffFinding(
+                path="header|name",
+                severity="error",
+                code="TYPE_CHANGED",
+                classification="breaking",
+                message="Field type changed",
+                expected="line1\nline2",
+                actual="value|with|pipes",
+            ),
+        ],
+    )
+
+    output = diff_result_to_markdown(result)
+
+    # pipes inside backticks must be escaped so the table doesn't break
+    assert r"header\|name" in output
+    assert r"value\|with\|pipes" in output
+    # newlines must become <br> so the markdown list item stays on one line
+    assert "line1<br>line2" in output
+    assert "line1\nline2" not in output.replace("# Spec Diff Report\n", "")

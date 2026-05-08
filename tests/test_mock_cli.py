@@ -139,7 +139,9 @@ def test_mock_cli_rejects_count_above_max(tmp_path: Path, spec_file: Path) -> No
     assert "invalid value" in result.output.lower() or "out of range" in result.output.lower()
 
 
-def test_mock_cli_array_min_items_without_items_warns_not_crashes(tmp_path: Path) -> None:
+def test_mock_cli_array_min_items_without_items_warns_not_crashes(tmp_path: Path, caplog) -> None:
+    import logging
+
     spec = _case_path(tmp_path, "array-no-items")
     _write(
         spec,
@@ -152,10 +154,14 @@ fields:
 """,
     )
 
-    result = runner.invoke(app, ["mock", "--spec", str(spec)])
+    with caplog.at_level(logging.WARNING, logger="specforge.engine.mocker"):
+        result = runner.invoke(app, ["mock", "--spec", str(spec)])
 
     assert result.exit_code == 0
-    assert "Warning: array field has minItems=2 but no items spec - generating empty array" in result.stderr
+    assert any(
+        "no items spec" in record.getMessage()
+        for record in caplog.records
+    )
 
 
 def test_mock_cli_count_shapes_are_explicit(tmp_path: Path, spec_file: Path) -> None:

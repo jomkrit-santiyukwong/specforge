@@ -351,3 +351,27 @@ def test_rename_heuristic_emits_property_changes_on_renamed_field():
     default_finding = get_finding(result, "DEFAULT_CHANGED")
     assert default_finding.path == "username"
     assert default_finding.classification == "non-breaking"
+
+
+def test_array_items_spec_added_is_breaking():
+    old_spec = make_spec(arr=FieldSpec(type="array"))
+    new_spec = make_spec(arr=FieldSpec(type="array", items=FieldSpec(type="integer")))
+
+    result = diff_specs(old_spec, new_spec)
+
+    finding = get_finding(result, "ITEMS_SPEC_ADDED")
+    assert finding.path == "arr[]"
+    assert finding.classification == "breaking"
+    assert finding.actual == "integer"
+
+
+def test_array_items_spec_removed_is_non_breaking():
+    old_spec = make_spec(arr=FieldSpec(type="array", items=FieldSpec(type="string")))
+    new_spec = make_spec(arr=FieldSpec(type="array"))
+
+    result = diff_specs(old_spec, new_spec)
+
+    finding = get_finding(result, "ITEMS_SPEC_REMOVED")
+    assert finding.path == "arr[]"
+    assert finding.classification == "non-breaking"
+    assert finding.expected == "string"

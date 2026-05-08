@@ -197,7 +197,9 @@ def test_seeded_generation_is_deterministic() -> None:
     assert first != third
 
 
-def test_pattern_field_emits_warning_to_stderr(capsys) -> None:
+def test_pattern_field_emits_warning(caplog) -> None:
+    import logging
+
     spec = SpecFile.model_validate({
         "type": "object",
         "fields": {
@@ -205,13 +207,15 @@ def test_pattern_field_emits_warning_to_stderr(capsys) -> None:
         },
     })
 
-    payload = MockGenerator(seed=29).generate(spec, "full")
-    captured = capsys.readouterr()
+    with caplog.at_level(logging.WARNING, logger="specforge.engine.mocker"):
+        payload = MockGenerator(seed=29).generate(spec, "full")
 
     assert "code" in payload
     assert isinstance(payload["code"], str)
-    assert "Warning: field code: pattern constraint skipped during mock generation" in captured.err
-    assert captured.out == ""
+    assert any(
+        "pattern constraint skipped" in record.getMessage() and "code" in record.getMessage()
+        for record in caplog.records
+    )
 
 
 def test_nullable_edge_returns_none() -> None:
@@ -265,3 +269,66 @@ def test_depth_guard_returns_type_correct_sentinel() -> None:
     assert generator._generate_field(fields["nestedNumber"], "full", "nestedNumber", 21) == 0.0
     assert generator._generate_field(fields["nestedInteger"], "full", "nestedInteger", 21) == 0
     assert generator._generate_field(fields["nestedBoolean"], "full", "nestedBoolean", 21) is False
+
+
+def test_iter_generate_is_lazy_and_matches_generate_many() -> None:
+    import types
+
+    spec = SpecFile.model_validate({
+        "type": "object",
+        "fields": {
+            "id": {"type": "integer", "required": True, "nullable": False, "minimum": 1},
+        },
+    })
+
+    streamed = MockGenerator(seed=53).iter_generate(spec, "minimal", 4)
+    assert isinstance(streamed, types.GeneratorType)
+    streamed_list = list(streamed)
+
+    buffered = MockGenerator(seed=53).generate_many(spec, "minimal", 4)
+
+    assert len(streamed_list) == 4
+    assert streamed_list == buffered
+
+
+def test_unique_items_with_object_items_falls_back_to_list_equality() -> None:
+    """Mocker generates unique array of object items — exercises unhashable fallback path."""
+    spec = SpecFile.model_validate({
+        "type": "object",
+        "fields": {
+            "rows": {
+                "type": "array",
+                "required": True,
+                "nullable": False,
+                "uniqueItems": True,
+                "minItems": 3,
+                "maxItems": 3,
+                "items": {
+                    "type": "object",
+                    "nullable": False,
+                    "fields": {"id": {"type": "integer", "required": True, "minimum": 1, "maximum": 1000, "nullable": False}},
+                },
+            },
+        },
+    })
+    payload = MockGenerator(seed=61).generate(spec, "full")
+    rows = payload["rows"]
+    assert len(rows) == 3
+    seen = []
+    for row in rows:
+        assert row not in seen
+        seen.append(row)
+
+
+def test_iter_generate_does_not_buffer_count() -> None:
+    spec = SpecFile.model_validate({
+        "type": "object",
+        "fields": {
+            "id": {"type": "integer", "required": True, "nullable": False},
+        },
+    })
+
+    gen = MockGenerator(seed=59).iter_generate(spec, "minimal", 1_000_000)
+    first = next(gen)
+    assert isinstance(first, dict)
+    assert "id" in first

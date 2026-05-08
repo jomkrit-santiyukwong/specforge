@@ -28,6 +28,11 @@ _TEST_GLOB_PATTERNS = (
     "excel-importer-*.xlsx",
     "import-excel-cli-*.xlsx",
     "import-excel-cli-*.yaml",
+    "security-*.yaml",
+    "security-*.json",
+    "security-*.csv",
+    "cli-flags-*.yaml",
+    "cli-flags-*.xlsx",
     "specforge-pytest-*/",
 )
 
