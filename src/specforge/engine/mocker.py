@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import logging
 import math
 import random
-import sys
+from collections.abc import Iterator
 from datetime import datetime
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 try:
     from faker import Faker
@@ -51,11 +54,14 @@ _MAX_ARRAY_ITEMS = 1_000
 
 
 def _count_distinct(values: list[Any]) -> int:
-    seen: list[Any] = []
-    for value in values:
-        if not any(value == existing for existing in seen):
-            seen.append(value)
-    return len(seen)
+    try:
+        return len(set(values))
+    except TypeError:
+        seen: list[Any] = []
+        for value in values:
+            if not any(value == existing for existing in seen):
+                seen.append(value)
+        return len(seen)
 
 
 class MockGenerator:
@@ -69,7 +75,13 @@ class MockGenerator:
         return self._generate_object(spec.fields, mode)
 
     def generate_many(self, spec: SpecFile, mode: str, count: int) -> list[dict[str, Any]]:
-        return [self.generate(spec, mode) for _ in range(count)]
+        return list(self.iter_generate(spec, mode, count))
+
+    def iter_generate(
+        self, spec: SpecFile, mode: str, count: int
+    ) -> Iterator[dict[str, Any]]:
+        for _ in range(count):
+            yield self.generate(spec, mode)
 
     def _generate_object(
         self, fields: dict[str, FieldSpec], mode: str, depth: int = 0
@@ -99,6 +111,9 @@ class MockGenerator:
                 return {}
             return None
 
+        if mode in {"minimal", "full"} and field_spec.default is not None:
+            return field_spec.default
+
         if mode == "edge" and field_spec.nullable:
             return None
 
@@ -108,9 +123,9 @@ class MockGenerator:
                 if v is not None or field_spec.nullable
             ]
             if not valid_enum:
-                print(
-                    f"Warning: field '{field_name}': enum has no non-null values but field is not nullable - returning type default",
-                    file=sys.stderr,
+                logger.warning(
+                    "field '%s': enum has no non-null values but field is not nullable — returning type default",
+                    field_name,
                 )
                 type_defaults = {
                     "string": "",
@@ -143,9 +158,9 @@ class MockGenerator:
 
     def _gen_string(self, field_spec: FieldSpec, mode: str, field_name: str) -> str:
         if field_spec.pattern is not None:
-            print(
-                f"Warning: field {field_name}: pattern constraint skipped during mock generation",
-                file=sys.stderr,
+            logger.warning(
+                "field '%s': pattern constraint skipped during mock generation",
+                field_name,
             )
 
         if mode == "edge":
@@ -217,9 +232,9 @@ class MockGenerator:
 
         if field_spec.items is None:
             if count > 0:
-                print(
-                    f"Warning: array field has minItems={count} but no items spec - generating empty array",
-                    file=sys.stderr,
+                logger.warning(
+                    "array field has minItems=%d but no items spec — generating empty array",
+                    count,
                 )
             return []
 
@@ -236,16 +251,38 @@ class MockGenerator:
             max_distinct = 2
 
         if max_distinct is not None and count > max_distinct:
+            min_required = field_spec.minItems if field_spec.minItems is not None else 0
+            if max_distinct < min_required:
+                logger.warning(
+                    "uniqueItems with minItems=%d but only %d distinct value(s) available — "
+                    "emitting array with %d item(s), which violates minItems",
+                    min_required,
+                    max_distinct,
+                    max_distinct,
+                )
             count = max_distinct
 
         unique_items: list[Any] = []
+        seen_hashable: set[Any] = set()
+        unhashable_mode = False
         attempts = 0
         max_attempts = max(count * 10, 50)
         while len(unique_items) < count and attempts < max_attempts:
             attempts += 1
             value = self._generate_field(field_spec.items, mode, "item", depth + 1)
-            if not any(value == existing for existing in unique_items):
-                unique_items.append(value)
+            if unhashable_mode:
+                if not any(value == existing for existing in unique_items):
+                    unique_items.append(value)
+            else:
+                try:
+                    if value in seen_hashable:
+                        continue
+                    seen_hashable.add(value)
+                    unique_items.append(value)
+                except TypeError:
+                    unhashable_mode = True
+                    if not any(value == existing for existing in unique_items):
+                        unique_items.append(value)
         return unique_items
 
     def _example_string(self, field_spec: FieldSpec, field_name: str) -> str:
@@ -271,10 +308,12 @@ class MockGenerator:
         if field_spec.format in ('email', 'date', 'date-time'):
             length_ok = (len(value) >= minimum) and (maximum is None or len(value) <= maximum)
             if not length_ok:
-                print(
-                    f"Warning: format '{field_spec.format}' value length {len(value)} is incompatible with "
-                    f"minLength={field_spec.minLength}, maxLength={field_spec.maxLength} — emitting format value as-is",
-                    file=sys.stderr,
+                logger.warning(
+                    "format '%s' value length %d is incompatible with minLength=%s, maxLength=%s — emitting format value as-is",
+                    field_spec.format,
+                    len(value),
+                    field_spec.minLength,
+                    field_spec.maxLength,
                 )
             return value  # always return format value unchanged
 

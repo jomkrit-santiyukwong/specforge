@@ -149,7 +149,7 @@ Use one header row with these columns (`field_name` and `type` are required):
 | `description` | | Free text |
 | `item_type` | | Required when `type=array`: type of each item |
 | `format` | | `email` `date` `date-time` |
-| `enum` | | Pipe-delimited values: `A\|B\|C` |
+| `enum` | | Pipe-delimited values: `A\|B\|C` (no escape — values cannot contain `\|`) |
 | `default` | | Default value (stored as string) |
 | `min_length` | | Minimum string length |
 | `max_length` | | Maximum string length |

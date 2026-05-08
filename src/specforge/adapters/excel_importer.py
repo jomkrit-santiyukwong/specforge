@@ -21,52 +21,31 @@ _HEADERS = (
     "min_items", "max_items", "unique_items",
 )
 
+_MAX_EXCEL_BYTES = 25 * 1024 * 1024  # 25 MB
+_MAX_EXCEL_ROWS = 100_000
 
-def import_excel(path: Path) -> SpecFile:
+
+def import_excel(path: Path, sheet: str | None = None) -> SpecFile:
     try:
         import openpyxl
     except ImportError as exc:
         raise CSVImportError("openpyxl is required for Excel import: pip install openpyxl") from exc
+
+    size = path.stat().st_size
+    if size > _MAX_EXCEL_BYTES:
+        raise CSVImportError(
+            f"Excel file is {size} bytes; maximum allowed is {_MAX_EXCEL_BYTES} bytes"
+        )
 
     try:
         wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
     except Exception as exc:
         raise CSVImportError(f"Could not open Excel file: {exc}") from exc
 
-    ws = wb.active
-    rows_iter = ws.iter_rows(values_only=True)
-
     try:
-        header_row = next(rows_iter)
-    except StopIteration:
+        rows = _extract_rows(wb, sheet)
+    finally:
         wb.close()
-        raise CSVImportError("Excel file is empty")
-
-    headers = [str(h).strip() if h is not None else "" for h in header_row]
-    headers = [h for h in headers if h]
-
-    if not headers:
-        wb.close()
-        raise CSVImportError("Excel file is empty")
-
-    _validate_headers(headers)
-
-    rows: list[CSVFieldRow] = []
-    for row_num, raw_row in enumerate(rows_iter, start=2):
-        normalized: dict[str, str | None] = {}
-        for i, header in enumerate(headers):
-            cell_val = raw_row[i] if i < len(raw_row) else None
-            if cell_val is None:
-                normalized[header] = None
-            else:
-                s = str(cell_val).strip()
-                normalized[header] = s if s else None
-
-        parsed = _parse_row(row_num, normalized)
-        if parsed is not None:
-            rows.append(parsed)
-
-    wb.close()
 
     if not rows:
         raise CSVImportError(
@@ -78,3 +57,58 @@ def import_excel(path: Path) -> SpecFile:
         return SpecFile.model_validate(spec_data)
     except ValidationError as exc:
         raise CSVImportError(f"Generated spec is invalid:\n{exc}") from exc
+
+
+def _extract_rows(wb, sheet: str | None) -> list[CSVFieldRow]:
+    if sheet is None:
+        ws = wb.active
+    else:
+        if sheet not in wb.sheetnames:
+            available = ", ".join(wb.sheetnames)
+            raise CSVImportError(
+                f"Sheet '{sheet}' not found in workbook (available: {available})"
+            )
+        ws = wb[sheet]
+
+    rows_iter = ws.iter_rows(values_only=True)
+
+    try:
+        header_row = next(rows_iter)
+    except StopIteration:
+        raise CSVImportError("Excel file is empty")
+
+    indexed_headers: list[tuple[int, str]] = []
+    for index, raw_header in enumerate(header_row):
+        if raw_header is None:
+            continue
+        name = str(raw_header).strip()
+        if name:
+            indexed_headers.append((index, name))
+
+    if not indexed_headers:
+        raise CSVImportError("Excel file is empty")
+
+    headers = [name for _, name in indexed_headers]
+    _validate_headers(headers)
+
+    rows: list[CSVFieldRow] = []
+    for row_num, raw_row in enumerate(rows_iter, start=2):
+        if row_num - 1 > _MAX_EXCEL_ROWS:
+            raise CSVImportError(
+                f"Excel file exceeds row limit of {_MAX_EXCEL_ROWS}"
+            )
+
+        normalized: dict[str, str | None] = {}
+        for col_index, header in indexed_headers:
+            cell_val = raw_row[col_index] if col_index < len(raw_row) else None
+            if cell_val is None:
+                normalized[header] = None
+            else:
+                s = str(cell_val).strip()
+                normalized[header] = s if s else None
+
+        parsed = _parse_row(row_num, normalized)
+        if parsed is not None:
+            rows.append(parsed)
+
+    return rows

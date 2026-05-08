@@ -2,9 +2,20 @@ from pathlib import Path
 from ruamel.yaml import YAML
 from specforge.models.spec import SpecFile
 
+_MAX_SPEC_BYTES = 10 * 1024 * 1024  # 10 MB
+
+
+class SpecFileTooLargeError(OSError):
+    pass
+
 
 def load_spec(path: Path) -> SpecFile:
-    yaml = YAML()
+    size = path.stat().st_size
+    if size > _MAX_SPEC_BYTES:
+        raise SpecFileTooLargeError(
+            f"Spec file is {size} bytes; maximum allowed is {_MAX_SPEC_BYTES} bytes"
+        )
+    yaml = YAML(typ="safe")
     with open(path, encoding="utf-8") as f:
         data = yaml.load(f)
     return SpecFile.model_validate(data)

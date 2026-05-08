@@ -30,6 +30,9 @@ CSV_HEADERS = (
 REQUIRED_HEADERS = {"field_name", "type"}
 VALID_TYPES: set[FieldType] = {"string", "integer", "number", "boolean", "object", "array", "null"}
 
+_MAX_CSV_BYTES = 10 * 1024 * 1024  # 10 MB
+_MAX_CSV_ROWS = 100_000
+
 
 class CSVImportError(ValueError):
     pass
@@ -84,12 +87,24 @@ class CSVFieldRow:
 
 
 def load_csv_rows(path: Path) -> list[CSVFieldRow]:
+    size = path.stat().st_size
+    if size > _MAX_CSV_BYTES:
+        raise CSVImportError(
+            f"CSV file is {size} bytes; maximum allowed is {_MAX_CSV_BYTES} bytes"
+        )
+
     try:
         with open(path, newline="", encoding="utf-8-sig") as handle:
             reader = csv.DictReader(handle)
             headers = reader.fieldnames
             _validate_headers(headers)
-            rows = [_parse_row(index + 2, row) for index, row in enumerate(reader)]
+            rows: list[CSVFieldRow | None] = []
+            for index, row in enumerate(reader):
+                if index >= _MAX_CSV_ROWS:
+                    raise CSVImportError(
+                        f"CSV file exceeds row limit of {_MAX_CSV_ROWS}"
+                    )
+                rows.append(_parse_row(index + 2, row))
     except csv.Error as exc:
         raise CSVImportError(f"Could not parse CSV file: {exc}") from exc
 
@@ -184,6 +199,11 @@ def _parse_type(row_number: int, column: str, value: str | None, *, required: bo
 
 
 def _parse_enum(value: str | None) -> list[str] | None:
+    """Split enum cell on `|`.
+
+    Limitation: there is no escape mechanism — a literal `|` cannot appear in an
+    enum value. Use the YAML format directly if you need that.
+    """
     if value is None:
         return None
     return value.split("|")

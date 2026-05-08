@@ -16,6 +16,7 @@ dependencies = [
     "ruamel.yaml>=0.18.0",
     "faker>=26.0",
     "openpyxl>=3.1.0",
+    "regex>=2024.5.15",
 ]
 
 [project.scripts]

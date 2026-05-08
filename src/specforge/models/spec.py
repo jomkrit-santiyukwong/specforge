@@ -1,6 +1,8 @@
 from __future__ import annotations
 import math
 from typing import Any, Literal
+
+import regex as _regex
 from pydantic import BaseModel, Field, model_validator
 
 FieldType = Literal["string", "integer", "number", "boolean", "object", "array", "null"]
@@ -53,6 +55,11 @@ class FieldSpec(BaseModel):
         if self.minItems is not None and self.maxItems is not None:
             if self.minItems > self.maxItems:
                 raise ValueError(f"minItems ({self.minItems}) must be <= maxItems ({self.maxItems})")
+        if self.pattern is not None:
+            try:
+                _regex.compile(self.pattern)
+            except _regex.error as exc:
+                raise ValueError(f"pattern is not a valid regex: {exc}") from exc
         return self
 
 

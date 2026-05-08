@@ -2,8 +2,10 @@ from specforge.models.result import DiffResult
 
 
 def _md_escape(value: str) -> str:
-    """Escape backtick characters so they cannot break markdown code spans."""
-    return str(value).replace("`", "\\`")
+    """Escape characters that would break markdown code spans, tables, or list items."""
+    text = str(value).replace("`", "\\`").replace("|", "\\|")
+    text = text.replace("\r\n", "<br>").replace("\n", "<br>").replace("\r", "<br>")
+    return text
 
 
 def diff_result_to_markdown(result: DiffResult) -> str:

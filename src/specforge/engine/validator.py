@@ -1,64 +1,42 @@
 import math
-import multiprocessing
 import re
 from datetime import date, datetime
 from typing import Any
 
-_MAX_PATTERN_LEN = 500
-_MAX_MATCH_INPUT_LEN = 10_000
-
-
-def _regex_worker(pattern: str, value: str, queue: multiprocessing.Queue) -> None:
-    try:
-        compiled = re.compile(pattern)
-        queue.put(("ok", bool(compiled.match(value))))
-    except re.error as e:
-        queue.put(("re_error", str(e)))
-
-
-def _safe_match(pattern: str, value: str) -> bool | None:
-    """Run regex in a child process with a 1-second timeout.
-    Raises re.error for invalid patterns. Returns None on timeout."""
-    import queue as _queue_mod
-    try:
-        ctx = multiprocessing.get_context("spawn")
-        q: multiprocessing.Queue = ctx.Queue()
-        proc = ctx.Process(target=_regex_worker, args=(pattern, value, q))
-        proc.start()
-        proc.join(timeout=1.0)
-
-        if proc.is_alive():
-            proc.terminate()
-            proc.join()
-            proc.close()
-            return None
-
-        proc.close()
-
-        try:
-            status, payload = q.get(timeout=0.5)
-        except _queue_mod.Empty:
-            return None
-
-        if status == "re_error":
-            raise re.error(payload)
-        return bool(payload)
-    except (PermissionError, OSError):
-        compiled = re.compile(pattern)
-        if re.search(r"\((?:[^()\\]|\\.)*[+*](?:[^()\\]|\\.)*\)[+*]", pattern):
-            return None
-        return bool(compiled.match(value))
+import regex as _regex
 
 from specforge.models.result import Finding, ValidationResult
 from specforge.models.spec import FieldSpec, SpecFile
 
+_MAX_PATTERN_LEN = 500
+_MAX_MATCH_INPUT_LEN = 10_000
+_PATTERN_TIMEOUT_SECONDS = 1.0
+_MAX_DEPTH = 64
+
+PatternError = _regex.error
+
+
+def _safe_match(pattern: str, value: str) -> bool | None:
+    """Match `value` against `pattern` using the `regex` library's native timeout.
+
+    Returns True/False on success, None on timeout. Raises `PatternError` for
+    invalid patterns (caller turns this into an INVALID_PATTERN finding).
+    """
+    compiled = _regex.compile(pattern)
+    try:
+        return bool(compiled.search(value, timeout=_PATTERN_TIMEOUT_SECONDS))
+    except TimeoutError:
+        return None
+
+
 _EMAIL_RE = re.compile(r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$")
+_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _MISSING = object()
 
 
 def validate(spec: SpecFile, payload: dict) -> ValidationResult:
     findings: list[Finding] = []
-    _validate_object(spec.fields, payload, "$", findings)
+    _validate_object(spec.fields, payload, "$", findings, depth=0)
     error_count = sum(1 for f in findings if f.severity == "error")
     warning_count = sum(1 for f in findings if f.severity == "warning")
     return ValidationResult(
@@ -70,8 +48,17 @@ def validate(spec: SpecFile, payload: dict) -> ValidationResult:
 
 
 def _validate_object(
-    fields: dict[str, FieldSpec], payload: dict, path: str, findings: list[Finding]
+    fields: dict[str, FieldSpec], payload: dict, path: str, findings: list[Finding], depth: int
 ) -> None:
+    if depth > _MAX_DEPTH:
+        findings.append(Finding(
+            path=path,
+            severity="error",
+            code="DEPTH_EXCEEDED",
+            message=f"Payload exceeds maximum nesting depth of {_MAX_DEPTH}",
+        ))
+        return
+
     for key in payload:
         if key not in fields:
             findings.append(Finding(
@@ -95,10 +82,10 @@ def _validate_object(
                 ))
             continue
 
-        _validate_field(spec, value, field_path, findings)
+        _validate_field(spec, value, field_path, findings, depth)
 
 
-def _validate_field(spec: FieldSpec, value: Any, path: str, findings: list[Finding]) -> None:
+def _validate_field(spec: FieldSpec, value: Any, path: str, findings: list[Finding], depth: int) -> None:
     if value is None:
         if not spec.nullable:
             findings.append(Finding(
@@ -136,9 +123,9 @@ def _validate_field(spec: FieldSpec, value: Any, path: str, findings: list[Findi
     elif spec.type in ("integer", "number"):
         _check_numeric(spec, value, path, findings)
     elif spec.type == "array":
-        _check_array(spec, value, path, findings)
+        _check_array(spec, value, path, findings, depth)
     elif spec.type == "object" and spec.fields:
-        _validate_object(spec.fields, value, path, findings)
+        _validate_object(spec.fields, value, path, findings, depth + 1)
 
 
 def _check_string(spec: FieldSpec, value: str, path: str, findings: list[Finding]) -> None:
@@ -197,7 +184,7 @@ def _check_string(spec: FieldSpec, value: str, path: str, findings: list[Finding
                         expected=spec.pattern,
                         actual=value,
                     ))
-            except re.error as e:
+            except PatternError as e:
                 findings.append(Finding(
                     path=path,
                     severity="warning",
@@ -216,9 +203,7 @@ def _check_string(spec: FieldSpec, value: str, path: str, findings: list[Finding
                 actual=value,
             ))
     elif spec.format == "date":
-        try:
-            date.fromisoformat(value)
-        except ValueError:
+        if not _DATE_RE.match(value):
             findings.append(Finding(
                 path=path,
                 severity="error",
@@ -227,6 +212,18 @@ def _check_string(spec: FieldSpec, value: str, path: str, findings: list[Finding
                 expected="date",
                 actual=value,
             ))
+        else:
+            try:
+                date.fromisoformat(value)
+            except ValueError:
+                findings.append(Finding(
+                    path=path,
+                    severity="error",
+                    code="FORMAT_MISMATCH",
+                    message="Value is not a valid date (expected YYYY-MM-DD)",
+                    expected="date",
+                    actual=value,
+                ))
     elif spec.format == "date-time":
         try:
             datetime.fromisoformat(value)
@@ -273,7 +270,7 @@ def _check_numeric(spec: FieldSpec, value: Any, path: str, findings: list[Findin
         ))
 
 
-def _check_array(spec: FieldSpec, value: list, path: str, findings: list[Finding]) -> None:
+def _check_array(spec: FieldSpec, value: list, path: str, findings: list[Finding], depth: int) -> None:
     if spec.minItems is not None and len(value) < spec.minItems:
         findings.append(Finding(
             path=path,
@@ -295,22 +292,44 @@ def _check_array(spec: FieldSpec, value: list, path: str, findings: list[Finding
         ))
 
     if spec.uniqueItems:
-        seen: list[Any] = []
-        for item in value:
-            if item in seen:
-                findings.append(Finding(
-                    path=path,
-                    severity="error",
-                    code="DUPLICATE_ITEMS",
-                    message="Array contains duplicate items",
-                    actual=item,
-                ))
-                break
-            seen.append(item)
+        seen_hashable: set[Any] = set()
+        seen_unhashable: list[Any] = []
+        unhashable_mode = False
+        duplicates_reported = 0
+        max_duplicates = 10
+        for index, item in enumerate(value):
+            is_duplicate = False
+            if unhashable_mode:
+                is_duplicate = any(item == existing for existing in seen_unhashable)
+                if not is_duplicate:
+                    seen_unhashable.append(item)
+            else:
+                try:
+                    if item in seen_hashable:
+                        is_duplicate = True
+                    else:
+                        seen_hashable.add(item)
+                except TypeError:
+                    unhashable_mode = True
+                    seen_unhashable = list(seen_hashable)
+                    seen_hashable = set()
+                    is_duplicate = any(item == existing for existing in seen_unhashable)
+                    if not is_duplicate:
+                        seen_unhashable.append(item)
+            if is_duplicate:
+                if duplicates_reported < max_duplicates:
+                    findings.append(Finding(
+                        path=f"{path}[{index}]",
+                        severity="error",
+                        code="DUPLICATE_ITEMS",
+                        message="Array contains duplicate items",
+                        actual=item,
+                    ))
+                duplicates_reported += 1
 
     if spec.items is not None:
         for i, item in enumerate(value):
-            _validate_field(spec.items, item, f"{path}[{i}]", findings)
+            _validate_field(spec.items, item, f"{path}[{i}]", findings, depth + 1)
 
 
 def _type_matches(expected: str, value: Any) -> bool:
