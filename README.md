@@ -1,6 +1,8 @@
 # SpecForge
 
-CLI toolkit that turns API/interface specs into practical validation, mock, and diff tools — useful before integration is finished.
+Find API payload gaps before SIT/UAT - not during SIT/UAT.
+
+SpecForge is a CLI toolkit for validating JSON payloads against API/interface specs, generating mock payloads, and detecting breaking changes between spec versions.
 
 ```bash
 pip install specforge
@@ -8,15 +10,19 @@ pip install specforge
 
 ---
 
-## Commands
+## Why SpecForge?
 
-| Command | What it does |
-|---|---|
-| `validate` | Check a JSON payload against a spec |
-| `mock` | Generate mock payloads from a spec |
-| `diff` | Compare two spec versions and explain changes |
-| `import-csv` | Convert a CSV spec sheet into a YAML spec |
-| `import-excel` | Convert an Excel spec sheet into a YAML spec |
+In multi-team API integration, payload issues are often found too late during SIT/UAT.
+
+Common problems include:
+
+- Required fields are missing
+- Field types do not match the agreed spec
+- Nested objects or arrays are structured differently
+- Teams interpret spreadsheet-based specs differently
+- Breaking changes between spec versions are not clearly visible
+
+SpecForge helps shift these checks earlier by turning API/interface specs into repeatable validation, mock generation, and spec diff workflows.
 
 ---
 
@@ -62,8 +68,8 @@ fields:
 specforge validate --spec spec.yaml --input payload.json
 ```
 
-```
-✔ Validation passed  (spec.yaml vs payload.json)
+```text
+Validation passed  (spec.yaml vs payload.json)
   Fields checked : 5
   Passed         : 5
   Failed         : 0
@@ -77,7 +83,7 @@ specforge mock --spec spec.yaml --mode full --count 5
 specforge mock --spec spec.yaml --seed 42
 ```
 
-Modes: `minimal` (required fields only) · `full` (all fields) · `edge` (boundary values) · `example` (realistic data)
+Modes: `minimal` (required fields only), `full` (all fields), `edge` (boundary values), `example` (realistic data)
 
 ### 4. Diff two spec versions
 
@@ -97,6 +103,69 @@ specforge import-excel --input spec.xlsx  --output spec.yaml
 ```
 
 Omit `--output` to print to stdout.
+
+---
+
+## Example validation failure
+
+If `amount` is sent as a string instead of a number:
+
+```json
+{
+  "transactionReference": "TXN-001",
+  "amount": "100.00",
+  "status": "ACTIVE",
+  "items": []
+}
+```
+
+SpecForge reports:
+
+```text
+Validation failed  (spec.yaml vs payload.json)
+
+[ERROR] $.amount
+Expected type : number
+Actual type   : string
+
+[ERROR] $.items
+Expected at least 1 item
+Actual items : 0
+```
+
+---
+
+## Commands
+
+| Command | What it does |
+|---|---|
+| `validate` | Check a JSON payload against a spec |
+| `mock` | Generate mock payloads from a spec |
+| `diff` | Compare two spec versions and explain changes |
+| `import-csv` | Convert a CSV spec sheet into a YAML spec |
+| `import-excel` | Convert an Excel spec sheet into a YAML spec |
+
+---
+
+## Best for
+
+- Backend developers validating API request/response payloads
+- QA engineers preparing integration test data
+- System analysts converting mapping specs into validation rules
+- Integration teams checking payload gaps before SIT/UAT
+- Teams that manage API specs in CSV or Excel
+
+---
+
+## How is this different from a JSON diff tool?
+
+JSON diff tools show that two payloads are different.
+
+SpecForge checks whether a payload is valid according to the agreed API/interface spec.
+
+It can validate required fields, data types, enum values, length rules, nested objects, arrays, and spec version changes.
+
+Not just JSON diff - validate payloads against API/interface specs.
 
 ---
 
@@ -142,14 +211,14 @@ Use one header row with these columns (`field_name` and `type` are required):
 
 | Column | Required | Description |
 |---|---|---|
-| `field_name` | ✓ | Field path — use dot notation for nesting: `address.street` |
-| `type` | ✓ | `string` `integer` `number` `boolean` `object` `array` `null` |
+| `field_name` | Yes | Field path - use dot notation for nesting: `address.street` |
+| `type` | Yes | `string` `integer` `number` `boolean` `object` `array` `null` |
 | `required` | | `true` / `false` (default: `false`) |
 | `nullable` | | `true` / `false` (default: `true`) |
 | `description` | | Free text |
 | `item_type` | | Required when `type=array`: type of each item |
 | `format` | | `email` `date` `date-time` |
-| `enum` | | Pipe-delimited values: `A\|B\|C` (no escape — values cannot contain `\|`) |
+| `enum` | | Pipe-delimited values: `A\|B\|C` (no escape - values cannot contain `\|`) |
 | `default` | | Default value (stored as string) |
 | `min_length` | | Minimum string length |
 | `max_length` | | Maximum string length |
@@ -160,14 +229,16 @@ Use one header row with these columns (`field_name` and `type` are required):
 | `max_items` | | Maximum array length |
 | `unique_items` | | `true` / `false` |
 
-**Nested objects** — use dot notation in `field_name`:
-```
-address.street → creates address (object) → street (string)
+**Nested objects** - use dot notation in `field_name`:
+
+```text
+address.street -> creates address (object) -> street (string)
 ```
 
-**Array items** — use the reserved `item` segment:
-```
-orders.item.productId → fields inside each array element
+**Array items** - use the reserved `item` segment:
+
+```text
+orders.item.productId -> fields inside each array element
 ```
 
 ---
@@ -176,6 +247,24 @@ orders.item.productId → fields inside each array element
 
 - Python 3.11+
 - `openpyxl` is included for Excel support
+
+---
+
+## Roadmap
+
+- [ ] Markdown validation report
+- [ ] HTML validation report
+- [ ] OpenAPI import
+- [ ] Postman collection import
+- [ ] Conditional required fields
+- [ ] Better nested array validation
+- [ ] CI/CD examples
+
+Example future rule:
+
+```text
+If customerType = corporate, companyRegistrationId is required.
+```
 
 ---
 
@@ -189,3 +278,9 @@ source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 pytest
 ```
+
+---
+
+## Feedback / Contributing
+
+Issues, feature requests, and examples from real integration workflows are welcome.

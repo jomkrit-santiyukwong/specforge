@@ -11,6 +11,12 @@ htmlcov/
 # Claude Code local settings
 .claude/settings.local.json
 
+# local planning / assistant working notes
+CLAUDE.md
+NEXT_STEPS.md
+PROGRESS.md
+specforge_project_brief.md
+
 # pytest tmp_path_factory directories
 specforge-pytest-*/
 
