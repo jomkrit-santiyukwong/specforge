@@ -6,7 +6,7 @@
 
 Find API payload gaps before SIT/UAT, not during SIT/UAT.
 
-![SpecForge validation demo](assets/specforge-demo.png)
+![SpecForge validation demo](https://raw.githubusercontent.com/jomkrit-santiyukwong/specforge/main/assets/specforge-demo.png)
 
 SpecForge validates JSON payloads against API/interface specs and reports contract gaps clearly.
 
