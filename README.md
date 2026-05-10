@@ -1,12 +1,12 @@
 # SpecForge
 
-Find API payload gaps before SIT/UAT - not during SIT/UAT.
+![Python](https://img.shields.io/badge/python-3.11%2B-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+![Status](https://img.shields.io/badge/status-early%20release-orange)
+
+Find API payload gaps before SIT/UAT, not during SIT/UAT.
 
 SpecForge is a CLI toolkit for validating JSON payloads against API/interface specs, generating mock payloads, and detecting breaking changes between spec versions.
-
-```bash
-pip install specforge
-```
 
 ---
 
@@ -23,6 +23,14 @@ Common problems include:
 - Breaking changes between spec versions are not clearly visible
 
 SpecForge helps shift these checks earlier by turning API/interface specs into repeatable validation, mock generation, and spec diff workflows.
+
+---
+
+## Install
+
+```bash
+pip install specforge
+```
 
 ---
 
@@ -119,6 +127,12 @@ If `amount` is sent as a string instead of a number:
 }
 ```
 
+Run:
+
+```bash
+specforge validate --spec spec.yaml --input payload.json
+```
+
 SpecForge reports:
 
 ```text
@@ -159,13 +173,18 @@ Actual items : 0
 
 ## How is this different from a JSON diff tool?
 
-JSON diff tools show that two payloads are different.
+JSON diff tools show where two payloads are different.
 
 SpecForge checks whether a payload is valid according to the agreed API/interface spec.
 
-It can validate required fields, data types, enum values, length rules, nested objects, arrays, and spec version changes.
+It validates:
 
-Not just JSON diff - validate payloads against API/interface specs.
+- Required and optional fields
+- Data types
+- Enum values
+- Length and numeric rules
+- Nested objects and arrays
+- Breaking changes between spec versions
 
 ---
 
@@ -250,7 +269,7 @@ orders.item.productId -> fields inside each array element
 
 ---
 
-## Roadmap
+## Roadmap / Planned features
 
 - [ ] Markdown validation report
 - [ ] HTML validation report
@@ -278,6 +297,12 @@ source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 pytest
 ```
+
+---
+
+## License
+
+MIT License
 
 ---
 
