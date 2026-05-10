@@ -22,6 +22,8 @@ specforge-pytest-*/
 
 # temp / test artifacts
 .tmp/
+.tmp-build/
+.tmp-smoke*/
 .pytest_tmp/
 .pytest_tmp_run/
 .pytest_tmp_step4/

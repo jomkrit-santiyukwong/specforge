@@ -19,7 +19,7 @@ def _version_callback(value: bool) -> None:
         from importlib.metadata import PackageNotFoundError, version
 
         try:
-            ver = version("specforge")
+            ver = version("specforge-cli")
         except PackageNotFoundError:
             ver = "unknown"
         typer.echo(f"specforge {ver}")

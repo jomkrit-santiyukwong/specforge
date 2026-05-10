@@ -3,8 +3,8 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "specforge"
-version = "0.1.0"
+name = "specforge-cli"
+version = "0.1.1"
 description = "CLI toolkit for validating, mocking, and diffing API specs"
 readme = "README.md"
 license = { text = "MIT" }

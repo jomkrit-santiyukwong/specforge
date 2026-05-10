@@ -33,7 +33,13 @@ SpecForge helps shift these checks earlier by turning API/interface specs into r
 ## Install
 
 ```bash
-pip install specforge
+pip install specforge-cli
+```
+
+Then run the CLI with:
+
+```bash
+specforge --help
 ```
 
 ---
