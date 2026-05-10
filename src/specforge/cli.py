@@ -6,7 +6,7 @@ import click
 import typer
 from pydantic import ValidationError
 
-app = typer.Typer(name="specforge", help="Validate, mock, and diff API specs", add_completion=False)
+app = typer.Typer(name="specforge-cli", help="Validate, mock, and diff API specs", add_completion=False)
 
 
 def _abort(msg: str) -> None:
@@ -22,7 +22,7 @@ def _version_callback(value: bool) -> None:
             ver = version("specforge-cli")
         except PackageNotFoundError:
             ver = "unknown"
-        typer.echo(f"specforge {ver}")
+        typer.echo(f"specforge-cli {ver}")
         raise typer.Exit()
 
 
