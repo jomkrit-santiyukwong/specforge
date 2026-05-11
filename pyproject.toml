@@ -8,6 +8,12 @@ version = "0.1.2"
 description = "CLI toolkit for validating, mocking, and diffing API specs"
 readme = "README.md"
 license = { text = "MIT" }
+authors = [
+    { name = "Jomkrit Santiyukwong", email = "jomkrit.san@gmail.com" },
+]
+maintainers = [
+    { name = "Jomkrit Santiyukwong" },
+]
 requires-python = ">=3.11"
 dependencies = [
     "typer>=0.12.0",
